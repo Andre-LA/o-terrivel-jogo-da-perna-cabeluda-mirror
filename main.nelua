@@ -1,23 +1,64 @@
 require 'raylib'
 
+-- Variables and records
 local screenWidth: integer <comptime> = 800
 local screenHeight: integer <comptime> = 600
 
-Raylib.InitWindow(screenWidth, screenHeight, "The terrible game of hairy leg!")
-Raylib.SetTargetFPS(60)
+local Perna = @record{
+   position: Vector2,
+   sprite: Texture2D,
+   movSpeed: number
+}
 
-local function Update()
+local perna: Perna;
+
+local function Setup()
+   Raylib.InitWindow(screenWidth, screenHeight, "The terrible game of hairy leg!")
+   Raylib.SetTargetFPS(60)
+
+   -- LoadTexture must be run after InitWindow, because of this I'll set all variables in Setup function
+   perna = (@Perna) {
+      sprite = Raylib.LoadTexture("resources/sprites/perna/protosprite.png"),
+      position = (@Vector2){ 0, 0 },
+      movSpeed = 100,
+   }
+end
+
+
+local function Update(dt: float32)
+   -- Perna's controls
+   local dir: Vector2  = { 0, 0 }
+
+   if Raylib.IsKeyDown(KeyboardKey.A) then
+      dir.x = -1
+   elseif Raylib.IsKeyDown(KeyboardKey.D) then
+      dir.x = 1
+   else
+      dir.x = 0
+   end
+
+   if Raylib.IsKeyDown(KeyboardKey.W) then
+      dir.y = -1
+   elseif Raylib.IsKeyDown(KeyboardKey.S) then
+      dir.y = 1
+   else
+      dir.y = 0
+   end
+
+   perna.position = perna.position + dir * perna.movSpeed * dt
 end
 
 local function Draw()
    Raylib.BeginDrawing()
       Raylib.ClearBackground(RaylibColors.Lightgray)
 
+      Raylib.DrawTextureV(perna.sprite, perna.position, RaylibColors.White)
 
    Raylib.EndDrawing()
 end
 
+Setup()
 while not Raylib.WindowShouldClose() do
-   Update()
+   Update(Raylib.GetFrameTime())
    Draw()
 end
