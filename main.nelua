@@ -1,0 +1,23 @@
+require 'raylib'
+
+local screenWidth: integer <comptime> = 800
+local screenHeight: integer <comptime> = 600
+
+Raylib.InitWindow(screenWidth, screenHeight, "The terrible game of hairy leg!")
+Raylib.SetTargetFPS(60)
+
+local function Update()
+end
+
+local function Draw()
+   Raylib.BeginDrawing()
+      Raylib.ClearBackground(RaylibColors.Lightgray)
+
+
+   Raylib.EndDrawing()
+end
+
+while not Raylib.WindowShouldClose() do
+   Update()
+   Draw()
+end
