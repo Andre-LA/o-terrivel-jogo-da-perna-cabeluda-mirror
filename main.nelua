@@ -1,8 +1,55 @@
 require 'raylib'
+require 'vector'
 
--- Variables and records
-local screenWidth: integer <comptime> = 800
-local screenHeight: integer <comptime> = 600
+-- systems
+local function get_direction_from_controls(rightKey: KeyboardKey, upKey: KeyboardKey, leftKey: KeyboardKey, downKey: KeyboardKey): Vector2
+   local dir: Vector2  = { 0, 0 }
+
+   if Raylib.IsKeyDown(leftKey) then
+      dir.x = -1
+   elseif Raylib.IsKeyDown(rightKey) then
+      dir.x = 1
+   end
+
+   if Raylib.IsKeyDown(upKey) then
+      dir.y = -1
+   elseif Raylib.IsKeyDown(downKey) then
+      dir.y = 1
+   end
+
+   return dir
+end
+
+local function movement_system(position: Vector2*, direction: Vector2, speed: number)
+   $position = position + direction * speed
+end
+
+-- records
+local BGTile = @record{
+   sprite: Texture2D,
+   id: uinteger
+}
+
+local TileMap = @record{
+   tileset: vector(BGTile),
+   map: uinteger[16][16]
+}
+
+function TileMap:Draw()
+   for l = 0, < #self.map do
+      for c = 0, < #self.map[l] do
+         local tile_id = self.map[l][c]
+         local tile_position: Vector2 = {64 * c, 64 * l}
+
+         for t = 0, < #self.tileset do
+            if self.tileset[t].id == tile_id then
+               local tile: BGTile = self.tileset[t]
+               Raylib.DrawTextureV(tile.sprite, tile_position, RaylibColors.White)
+            end
+         end
+      end
+   end
+end
 
 local Perna = @record{
    position: Vector2,
@@ -10,52 +57,82 @@ local Perna = @record{
    movSpeed: number
 }
 
+function Perna:Update(dt: number)
+   local dirControls = get_direction_from_controls(KeyboardKey.RIGHT, KeyboardKey.UP, KeyboardKey.LEFT, KeyboardKey.DOWN)
+   movement_system(self.position, dirControls, self.movSpeed * dt)
+end
+
+function Perna:Draw()
+   Raylib.DrawTextureV(self.sprite, self.position, RaylibColors.White)
+end
+
+-- game variables
+-- LoadTexture must be run after InitWindow, because of this I'll set all variables in Setup function
 local perna: Perna;
+local dirt_tile: BGTile;
+local water_tile: BGTile;
+local tileMap: TileMap;
+
+-------------------------------------------------------------------------------
 
 local function Setup()
-   Raylib.InitWindow(screenWidth, screenHeight, "The terrible game of hairy leg!")
-   Raylib.SetTargetFPS(60)
-
-   -- LoadTexture must be run after InitWindow, because of this I'll set all variables in Setup function
    perna = (@Perna) {
       sprite = Raylib.LoadTexture("resources/sprites/perna/protosprite.png"),
       position = (@Vector2){ 0, 0 },
       movSpeed = 100,
    }
+
+   dirt_tile = {
+      sprite = Raylib.LoadTexture("resources/tiles/dirt.png"),
+      id = 0,
+   }
+
+   water_tile = {
+      sprite = Raylib.LoadTexture("resources/tiles/water.png"),
+      id = 1,
+   }
+
+   tileMap = {
+      tileset = {dirt_tile, water_tile},
+      map = {
+         {1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+         {0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+         {0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+         {0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+         {0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+         {0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+         {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+         {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+         {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+         {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+         {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+         {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+         {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+         {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+         {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+         {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+      }
+   }
 end
 
-
-local function Update(dt: float32)
-   -- Perna's controls
-   local dir: Vector2  = { 0, 0 }
-
-   if Raylib.IsKeyDown(KeyboardKey.A) then
-      dir.x = -1
-   elseif Raylib.IsKeyDown(KeyboardKey.D) then
-      dir.x = 1
-   else
-      dir.x = 0
-   end
-
-   if Raylib.IsKeyDown(KeyboardKey.W) then
-      dir.y = -1
-   elseif Raylib.IsKeyDown(KeyboardKey.S) then
-      dir.y = 1
-   else
-      dir.y = 0
-   end
-
-   perna.position = perna.position + dir * perna.movSpeed * dt
+local function Update(dt: number)
+   perna:Update(dt)
 end
 
 local function Draw()
    Raylib.BeginDrawing()
       Raylib.ClearBackground(RaylibColors.Lightgray)
-
-      Raylib.DrawTextureV(perna.sprite, perna.position, RaylibColors.White)
-
+      tileMap:Draw()
+      perna:Draw()
    Raylib.EndDrawing()
 end
+
+-- app
+local screenWidth: integer <comptime> = 800
+local screenHeight: integer <comptime> = 600
+
+Raylib.InitWindow(screenWidth, screenHeight, "The terrible game of hairy leg!")
+Raylib.SetTargetFPS(60)
 
 Setup()
 while not Raylib.WindowShouldClose() do
