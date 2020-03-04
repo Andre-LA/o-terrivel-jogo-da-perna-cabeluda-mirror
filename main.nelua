@@ -1,13 +1,6 @@
 require 'raylib'
-
--- TODO: update Rotor library to just "require 'rotor'"
-require 'rotor.bitset_array'
-require 'rotor.entity'
-require 'rotor.storage'
-require 'rotor.system_data'
-
+require 'rotor'
 require 'vector'
-
 
 -- components [
 local Position: type = @Vector2

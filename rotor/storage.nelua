@@ -38,7 +38,6 @@ require 'vector'
       if #self.next_free_ids == 0 then
          self.next_free_ids:push(GenerationalIndex.new(0, 0))
       end
-
       local last_free_id = &self.next_free_ids[#self.next_free_ids - 1]
 
       local last_free_id_idx = last_free_id.index
@@ -47,9 +46,8 @@ require 'vector'
       self.entries:insert(last_free_id_idx, entry_content)
       local entry: T* = &self.entries[last_free_id_idx]
 
-      local newgen: optional(uinteger)
-      newgen:set(last_free_id.generation)
-
+      local newgen: optional(uinteger);
+      newgen:set(last_free_id_gen)
       self.generations:insert(last_free_id_idx, newgen)
 
       if last_free_id.index >= self.len then -- storage needs to grow
