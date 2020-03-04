@@ -1,0 +1,121 @@
+require 'rotor.generational_index'
+require 'rotor.optional'
+require 'vector'
+
+
+## local make_storage = generalize(function(T)
+   local T: type = @#[T]#
+
+   local StorageT <codename #['Storage_'..T.codename]#> = @record{
+      next_free_ids: vector(GenerationalIndex),
+      entries: vector(T),
+      generations: vector(optional(uinteger)), -- generation[x] = 0 means that there is not x entry
+      len: isize
+   }
+
+   ## StorageT.value.is_storage = true
+   ## StorageT.value.subtype = T
+
+   local function is_valid_entry(storage_ptr: StorageT*, gidx: GenerationalIndex): boolean
+      local gen = storage_ptr.generations[gidx.index]
+
+      if not gen.filled then
+         return false
+      elseif gidx.generation ~= gen:get() then
+         return false
+      end
+
+      return true
+   end
+
+   function StorageT.new(): StorageT
+      local newstorage: StorageT;
+      newstorage.next_free_ids:push(GenerationalIndex.new(0, 0))
+      return newstorage
+   end
+
+   function StorageT:new_entry(entry_content: T): (GenerationalIndex, T*)
+      if #self.next_free_ids == 0 then
+         self.next_free_ids:push(GenerationalIndex.new(0, 0))
+      end
+      local last_free_id = self.next_free_ids[#self.next_free_ids - 1]
+
+      self.entries:insert(last_free_id.index, entry_content)
+      local entry: T* = &self.entries[last_free_id.index]
+
+      local newgen: optional(uinteger)
+      newgen:set(last_free_id.generation)
+      self.generations:insert(last_free_id.index, newgen)
+
+      if last_free_id.index > self.len then -- storage needs to grow
+         self.len = last_free_id.index
+         last_free_id.index = last_free_id.index + 1
+         last_free_id.generation = 0
+      else
+         self.next_free_ids:pop()
+      end
+
+      -- return a copy of the gen_idx of this new entry
+      return GenerationalIndex.new(last_free_id.index, last_free_id.generation), entry
+   end
+
+   function StorageT:get_entry(gen_idx: GenerationalIndex): optional(T*)
+      local result: optional(T*)
+      local gen = self.generations[gen_idx.index]
+      if gen.filled then
+         if gen_idx.generation == gen:get() then
+            result:set(&self.entries[gen_idx.index])
+         end
+      end
+      return result
+   end
+
+   function StorageT:remove_entry(gen_idx: GenerationalIndex): boolean
+      local try_get = self:get_entry(gen_idx)
+      if not try_get.filled then
+         return false
+      end
+
+      self.entries[gen_idx.index] = (@T)()
+      local gen = self.generations[gen_idx.index]
+      gen:clear()
+
+      if gen_idx.index == self.len then
+         local last_i = 0_u
+         for i = 0_u, < self.len do
+            local gen_i = self.generations[i]
+            if gen_i.filled then
+               last_i = i
+            end
+         end
+         self.len = last_i
+      end
+
+      self.next_free_ids:push(GenerationalIndex.new(gen_idx.index, gen_idx.generation + 1))
+
+      return false
+   end
+
+   ## return StorageT
+## end)
+
+global Storage = #[make_storage]#
+
+## if true then --[
+   local R = @record{x: number, y: number}
+
+   function R:print() print("R {x = ", self.x, ", y = ", self.y, "}") end
+
+   local StorageRec: type = @Storage(R);
+   local storage_test: StorageRec = StorageRec.new()
+
+   local new_entry_id, new_entry = storage_test:new_entry( (@R){x = 123, y = 789} )
+
+   local possible_entry = storage_test:get_entry(new_entry_id)
+   assert(possible_entry.filled, 'test error: obtained entry from storage is no filled')
+
+   local entry = possible_entry:get()
+   assert(entry.x == 123 and entry.y == 789, 'test error: entry values are different')
+## end --]
+
+
