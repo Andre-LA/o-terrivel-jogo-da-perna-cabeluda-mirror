@@ -1,100 +1,302 @@
 require 'raylib'
+
+-- TODO: update Rotor library to just "require 'rotor'"
+require 'rotor.bitset_array'
+require 'rotor.entity'
+require 'rotor.storage'
+require 'rotor.system_data'
+
 require 'vector'
 
--- systems
-local function get_direction_from_controls(rightKey: KeyboardKey, upKey: KeyboardKey, leftKey: KeyboardKey, downKey: KeyboardKey): Vector2
-   local dir: Vector2  = { 0, 0 }
 
-   if Raylib.IsKeyDown(leftKey) then
-      dir.x = -1
-   elseif Raylib.IsKeyDown(rightKey) then
-      dir.x = 1
-   end
+-- components [
+local Position: type = @Vector2
 
-   if Raylib.IsKeyDown(upKey) then
-      dir.y = -1
-   elseif Raylib.IsKeyDown(downKey) then
-      dir.y = 1
-   end
+local Velocity = @record{
+   direction: Vector2,
+   scalar: number
+}
 
-   return dir
-end
+local Controls = @record{
+   rightKey: KeyboardKey,
+   upKey: KeyboardKey,
+   leftKey: KeyboardKey,
+   downKey: KeyboardKey,
+}
 
-local function movement_system(position: Vector2*, direction: Vector2, speed: number)
-   $position = position + direction * speed
-end
+local Sprite = @record{
+   -- sprite_id: uinteger, TODO: implement sprite id
+   texture: Texture2D
+}
 
--- records
+-- TODO: use a tileset for tiles, with this autotile will be possible
 local BGTile = @record{
-   sprite: Texture2D,
+   sprite: Sprite,
    id: uinteger
 }
 
-local TileMap = @record{
-   tileset: vector(BGTile),
-   map: uinteger[16][16]
+local TileSet = @record{
+   tiles: vector(BGTile),
+   tile_resolution: uinteger
 }
 
-function TileMap:Draw()
-   for l = 0, < #self.map do
-      for c = 0, < #self.map[l] do
-         local tile_id = self.map[l][c]
-         local tile_position: Vector2 = {64 * c, 64 * l}
+local TileMap = @record{
+   tileset: TileSet*,
+   map: vector(vector(uinteger))
+}
+-- components ]
 
-         for t = 0, < #self.tileset do
-            if self.tileset[t].id == tile_id then
-               local tile: BGTile = self.tileset[t]
-               Raylib.DrawTextureV(tile.sprite, tile_position, RaylibColors.White)
+-- storages [
+local EntityStorage: type = @Storage(Entity)
+local PositionStorage: type = @Storage(Position)
+local VelocityStorage: type = @Storage(Velocity)
+local ControlsStorage: type = @Storage(Controls)
+local TileMapStorage: type = @Storage(TileMap)
+local SpriteStorage: type = @Storage(Sprite)
+
+local storages: record{
+   entity: EntityStorage,
+   position: PositionStorage,
+   velocity: VelocityStorage,
+   controls: ControlsStorage,
+   tilemap: TileMapStorage,
+   sprite: SpriteStorage
+} = {
+   EntityStorage.new(),
+   PositionStorage.new(),
+   VelocityStorage.new(),
+   ControlsStorage.new(),
+   TileMapStorage.new(),
+   SpriteStorage.new(),
+}
+-- storages ]
+
+-- masks [
+local masks: record{
+   entity: BitsetArray,   --  1
+   position: BitsetArray, --  2
+   velocity: BitsetArray, --  4
+   controls: BitsetArray, --  8
+   tilemap: BitsetArray,  -- 16
+   sprite: BitsetArray,   -- 32
+} = {
+   bitset_array.lshift(BITSETARRAY_OF_ONE, 0), --  1
+   bitset_array.lshift(BITSETARRAY_OF_ONE, 1), --  2
+   bitset_array.lshift(BITSETARRAY_OF_ONE, 2), --  4
+   bitset_array.lshift(BITSETARRAY_OF_ONE, 3), --  8
+   bitset_array.lshift(BITSETARRAY_OF_ONE, 4), -- 16
+   bitset_array.lshift(BITSETARRAY_OF_ONE, 5), -- 32
+}
+-- masks ]
+
+-- systems [
+local System = @record{
+   read: vector(BitsetArray),
+   write: vector(BitsetArray),
+   system_data: SystemData
+}
+function System:init()
+   self.system_data = SystemData.new(self.read, self.write)
+end
+
+-- velocity system [[
+local velocity_system: System = {
+   read = {bitset_array.copy(masks.velocity)},
+   write = {bitset_array.copy(masks.position)}
+}
+velocity_system:init()
+
+local function velocity_system_run(system_data: SystemData*, velocity_storage: VelocityStorage*, position_storage: PositionStorage*, delta_time: number)
+   for i = 0, < #system_data.components_indexes do
+      local ids = system_data.components_indexes[i]
+
+      if #ids > 0 then
+         local vel_id = ids[0];
+         local pos_id = ids[1];
+
+         local possible_vel = velocity_storage:get_entry(vel_id)
+         local possible_pos = position_storage:get_entry(pos_id)
+
+         if possible_vel.filled and possible_pos.filled then
+            local vel = possible_vel:get()
+            local pos = possible_pos:get()
+
+            pos.x = pos.x + vel.direction.x * vel.scalar * delta_time
+            pos.y = pos.y + vel.direction.y * vel.scalar * delta_time
+         else
+            system_data:mark_available(i)
+         end
+      end
+   end
+end
+-- velocity system ]]
+
+-- Perna's controls system [[
+local perna_controls_system: System = {
+   read = {bitset_array.copy(masks.controls)},
+   write = {bitset_array.copy(masks.velocity)}
+}
+perna_controls_system:init()
+
+local function perna_controls_system_run(system_data: SystemData*, controls_storage: ControlsStorage*, velocity_storage: VelocityStorage*)
+   for i = 0, < #system_data.components_indexes do
+      --print ('perna control system i', i)
+      local ids = system_data.components_indexes[i]
+
+      if #ids > 0 then
+         local ctrl_id = ids[0]
+         local vel_id = ids[1]
+
+         local possible_ctrl = controls_storage:get_entry(ctrl_id)
+         local possible_vel = velocity_storage:get_entry(vel_id)
+
+         if possible_ctrl.filled and possible_vel.filled then
+            local controls = possible_ctrl:get()
+            local velocity = possible_vel:get()
+
+
+            if Raylib.IsKeyDown(controls.rightKey) then
+               velocity.direction.x = 1
+            elseif Raylib.IsKeyDown(controls.leftKey) then
+               velocity.direction.x = -1
+            else
+               velocity.direction.x = 0
+            end
+
+            if Raylib.IsKeyDown(controls.upKey) then
+               velocity.direction.y = -1
+            elseif Raylib.IsKeyDown(controls.downKey) then
+               velocity.direction.y = 1
+            else
+               velocity.direction.y = 0
+            end
+         else
+            system_data:mark_available(i)
+         end
+      end
+   end
+end
+-- Perna's controls system ]]
+
+-- tilemap drawing system [[
+local tilemap_drawing_system: System = {
+   read = {bitset_array.copy(masks.tilemap)},
+   write = {}
+}
+tilemap_drawing_system:init()
+
+local function tilemap_drawing_system_run(system_data: SystemData*, tilemap_storage: TileMapStorage*)
+   for i = 0, < #system_data.components_indexes do
+      --print ('tilemap system i', i)
+      local ids = system_data.components_indexes[i]
+
+      if #ids > 0 then
+         local tm_id = ids[0]
+         local possible_tm = tilemap_storage:get_entry(tm_id)
+
+         if possible_tm.filled then
+            local tilemap = possible_tm:get()
+            local tileset = tilemap.tileset
+            local map = &tilemap.map
+
+            for l = 0, < #map do
+               for c = 0, < #map[l] do
+                  local tile_position: Vector2 = {tileset.tile_resolution * c, tileset.tile_resolution * l}
+                  local tile_id = map[l][c]
+
+                  for t = 0, < #tileset.tiles do
+                     local tile: BGTile = tileset.tiles[t]
+                     if tile.id == tile_id then
+                        Raylib.DrawTextureV(tile.sprite.texture, tile_position, RaylibColors.White)
+                     end
+                  end
+               end
             end
          end
       end
    end
 end
+-- tilemap drawing system ]]
 
-local Perna = @record{
-   position: Vector2,
-   sprite: Texture2D,
-   movSpeed: number
+-- sprite drawing system [[
+local sprite_drawing_system: System = {
+   read = {bitset_array.copy(masks.position), bitset_array.copy(masks.sprite)},
+   write = {}
+}
+sprite_drawing_system:init()
+
+local function sprite_drawing_system_run(system_data: SystemData*, position_storage: PositionStorage*, sprite_storage: SpriteStorage*)
+   for i = 0, < #system_data.components_indexes do
+      --print ('sprite system i', i)
+
+      local ids = system_data.components_indexes[i]
+
+      if #ids > 0 then
+         local pos_id = ids[0]
+         local sprite_id = ids[1]
+
+         local possible_sprite = sprite_storage:get_entry(sprite_id)
+         local possible_pos = position_storage:get_entry(pos_id)
+
+         if possible_sprite.filled and possible_pos.filled then
+            local sprite = possible_sprite:get()
+            local pos = possible_pos:get()
+            Raylib.DrawTextureV(sprite.texture, pos, RaylibColors.White)
+         else
+            system_data:mark_available(i)
+         end
+      end
+   end
+end
+-- sprite drawing system ]]
+-- systems ]
+
+-- game
+local Game = @record{
+   perna: record{
+      id: GenerationalIndex
+   },
+   tilemap: record{
+      id: GenerationalIndex
+   },
+   tileset: TileSet
 }
 
-function Perna:Update(dt: number)
-   local dirControls = get_direction_from_controls(KeyboardKey.RIGHT, KeyboardKey.UP, KeyboardKey.LEFT, KeyboardKey.DOWN)
-   movement_system(self.position, dirControls, self.movSpeed * dt)
+local function load_game_tileset(game: Game*)
+   game.tileset = {
+      tiles = {
+         {sprite = {texture = Raylib.LoadTexture("resources/tiles/dirt.png") }, id = 0},
+         {sprite = {texture = Raylib.LoadTexture("resources/tiles/water.png")}, id = 1}
+      },
+      tile_resolution = 64
+   }
 end
 
-function Perna:Draw()
-   Raylib.DrawTextureV(self.sprite, self.position, RaylibColors.White)
+local function create_perna(game: Game*, untracked_ids: pointer(vector(GenerationalIndex)))
+   local perna_entity_id, perna_entity = storages.entity:new_entry(Entity.new())
+
+   local position_id, position = storages.position:new_entry({0, 0})
+   perna_entity:associate(position_id, masks.position)
+
+   local velocity_id, velocity = storages.velocity:new_entry({{0, 0}, 100})
+   perna_entity:associate(velocity_id, masks.velocity)
+
+   local sprite_id, sprite = storages.sprite:new_entry({texture = Raylib.LoadTexture("resources/sprites/perna/protosprite.png")})
+   perna_entity:associate(sprite_id, masks.sprite)
+
+   local controls_id, controls = storages.controls:new_entry({KeyboardKey.RIGHT, KeyboardKey.UP, KeyboardKey.LEFT, KeyboardKey.DOWN})
+   perna_entity:associate(controls_id, masks.controls)
+
+   untracked_ids:push(perna_entity_id)
+   game.perna.id = perna_entity_id
 end
 
--- game variables
--- LoadTexture must be run after InitWindow, because of this I'll set all variables in Setup function
-local perna: Perna;
-local dirt_tile: BGTile;
-local water_tile: BGTile;
-local tileMap: TileMap;
+local function create_tilemap(game: Game*, untracked_ids: pointer(vector(GenerationalIndex)))
+   local tm_entity_id, tm_entity = storages.entity:new_entry(Entity.new())
 
--------------------------------------------------------------------------------
-
-local function Setup()
-   perna = (@Perna) {
-      sprite = Raylib.LoadTexture("resources/sprites/perna/protosprite.png"),
-      position = (@Vector2){ 0, 0 },
-      movSpeed = 100,
-   }
-
-   dirt_tile = {
-      sprite = Raylib.LoadTexture("resources/tiles/dirt.png"),
-      id = 0,
-   }
-
-   water_tile = {
-      sprite = Raylib.LoadTexture("resources/tiles/water.png"),
-      id = 1,
-   }
-
-   tileMap = {
-      tileset = {dirt_tile, water_tile},
-      map = {
+   local tilemap_id, tilemap = storages.tilemap:new_entry({
+      &game.tileset,
+      {
          {1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
          {0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
          {0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
@@ -112,30 +314,54 @@ local function Setup()
          {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
          {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
       }
-   }
+   })
+
+   tm_entity:associate(tilemap_id, masks.tilemap)
+
+   untracked_ids:push(tm_entity_id)
+   game.tilemap.id = tm_entity_id
 end
 
-local function Update(dt: number)
-   perna:Update(dt)
+local game: Game;
+local untracked_ids: vector(GenerationalIndex)
+
+local function setup()
+   load_game_tileset(game)
+
+   create_perna(game, &untracked_ids)
+   create_tilemap(game, &untracked_ids)
+
+   velocity_system.system_data:update(storages.entity, untracked_ids)
+   perna_controls_system.system_data:update(storages.entity, untracked_ids)
+   tilemap_drawing_system.system_data:update(storages.entity, untracked_ids)
+   sprite_drawing_system.system_data:update(storages.entity, untracked_ids)
 end
 
-local function Draw()
+local function update(dt: number)
+   perna_controls_system_run(perna_controls_system.system_data, storages.controls, storages.velocity)
+   velocity_system_run(velocity_system.system_data, storages.velocity, storages.position, dt)
+end
+
+local function draw()
    Raylib.BeginDrawing()
-      Raylib.ClearBackground(RaylibColors.Lightgray)
-      tileMap:Draw()
-      perna:Draw()
+      Raylib.ClearBackground(RaylibColors.White)
+
+      tilemap_drawing_system_run(tilemap_drawing_system.system_data, storages.tilemap)
+      sprite_drawing_system_run(sprite_drawing_system.system_data, storages.position, storages.sprite)
    Raylib.EndDrawing()
 end
 
--- app
-local screenWidth: integer <comptime> = 800
-local screenHeight: integer <comptime> = 600
 
-Raylib.InitWindow(screenWidth, screenHeight, "The terrible game of hairy leg!")
+local SCREEN_WIDTH: integer <comptime> = 800
+local SCREEN_HEIGHT: integer <comptime> = 600
+
+Raylib.InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "The terrible game of hairy leg!")
 Raylib.SetTargetFPS(60)
 
-Setup()
+setup()
+
 while not Raylib.WindowShouldClose() do
-   Update(Raylib.GetFrameTime())
-   Draw()
+   update(Raylib.GetFrameTime())
+   draw()
 end
+Raylib.CloseWindow()
