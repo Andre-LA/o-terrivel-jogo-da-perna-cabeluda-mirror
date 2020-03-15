@@ -104,7 +104,7 @@ require 'vector'
 
 global Storage = #[make_storage]#
 
-## if true then --[
+## if false then --[
    local R = @record{x: number, y: number}
 
    function R:print() print("R {x = ", self.x, ", y = ", self.y, "}") end
