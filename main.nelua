@@ -1,14 +1,25 @@
 require 'raylib'
+require 'perna-lib.entities'
 require 'perna-lib.components'
 require 'perna-lib.systems'
 require 'rotor'
 require 'vector'
 
+-- game records and subroutines [
+local GameSystems = @record{
+   velocity_system: VelocitySystem,
+   tilemap_drawing_system: TilemapDrawingSystem,
+   sprite_drawing_system: SpriteDrawingSystem,
+   perna_controller_system: PernaControllerSystem
 }
 
+function GameSystems:update_all(entity_storage: Storage(Entity)*, untracked_ids: vector(GenerationalIndex)*)
+   self.velocity_system.system.system_data:update(storages.entity, untracked_ids)
+   self.perna_controller_system.system.system_data:update(storages.entity, untracked_ids)
+   self.tilemap_drawing_system.system.system_data:update(storages.entity, untracked_ids)
+   self.sprite_drawing_system.system.system_data:update(storages.entity, untracked_ids)
 end
 
--- game
 local Game = @record{
    perna: record{
       id: GenerationalIndex
@@ -16,7 +27,8 @@ local Game = @record{
    tilemap: record{
       id: GenerationalIndex
    },
-   tileset: TileSet
+   tileset: TileSet,
+   game_systems: GameSystems
 }
 
 local function load_game_tileset(game: Game*)
@@ -29,23 +41,22 @@ local function load_game_tileset(game: Game*)
    }
 end
 
-local function create_perna(game: Game*, untracked_ids: pointer(vector(GenerationalIndex)))
-   local perna_entity_id, perna_entity = storages.entity:new_entry(Entity.new())
+local function create_perna(game: Game*, untracked_ids: vector(GenerationalIndex)*): PernaEntity
+   local new_perna: PernaEntity;
+   new_perna:create(
+      storages.entity,
+      storages.position, {0, 0},
+      storages.velocity, {{0, 0}, 100},
+      storages.sprite  , {texture = Raylib.LoadTexture('resources/sprites/perna/protosprite.png')},
+      storages.controls, {KeyboardKey.RIGHT, KeyboardKey.UP, KeyboardKey.LEFT, KeyboardKey.DOWN},
+      untracked_ids
+   )
 
-   local position_id, position = storages.position:new_entry({0, 0})
-   perna_entity:associate(position_id, masks.position)
+   game.perna = {
+      id = new_perna.entity_id
+   }
 
-   local velocity_id, velocity = storages.velocity:new_entry({{0, 0}, 100})
-   perna_entity:associate(velocity_id, masks.velocity)
-
-   local sprite_id, sprite = storages.sprite:new_entry({texture = Raylib.LoadTexture("resources/sprites/perna/protosprite.png")})
-   perna_entity:associate(sprite_id, masks.sprite)
-
-   local controls_id, controls = storages.controls:new_entry({KeyboardKey.RIGHT, KeyboardKey.UP, KeyboardKey.LEFT, KeyboardKey.DOWN})
-   perna_entity:associate(controls_id, masks.controls)
-
-   untracked_ids:push(perna_entity_id)
-   game.perna.id = perna_entity_id
+   return new_perna
 end
 
 local function create_tilemap(game: Game*, untracked_ids: pointer(vector(GenerationalIndex)))
@@ -79,7 +90,21 @@ local function create_tilemap(game: Game*, untracked_ids: pointer(vector(Generat
    game.tilemap.id = tm_entity_id
 end
 
+-- game records and subroutines ]
+
+-- game [
+local SCREEN_WIDTH: integer <comptime> = 1280
+local SCREEN_HEIGHT: integer <comptime> = 720
+
 local game: Game;
+
+game.game_systems = {
+   VelocitySystem.new(),
+   TilemapDrawingSystem.new(),
+   SpriteDrawingSystem.new(),
+   PernaControllerSystem.new()
+}
+
 local untracked_ids: vector(GenerationalIndex)
 
 local function setup()
@@ -88,37 +113,35 @@ local function setup()
    create_perna(game, &untracked_ids)
    create_tilemap(game, &untracked_ids)
 
-   velocity_system.system_data:update(storages.entity, untracked_ids)
-   perna_controls_system.system_data:update(storages.entity, untracked_ids)
-   tilemap_drawing_system.system_data:update(storages.entity, untracked_ids)
-   sprite_drawing_system.system_data:update(storages.entity, untracked_ids)
+   game.game_systems:update_all(storages.entity, untracked_ids)
 end
 
-local function update(dt: number)
-   perna_controls_system_run(perna_controls_system.system_data, storages.controls, storages.velocity)
-   velocity_system_run(velocity_system.system_data, storages.velocity, storages.position, dt)
+local function update()
+   local dt = Raylib.GetFrameTime()
+   game.game_systems.perna_controller_system:run(storages.controls, storages.velocity)
+   game.game_systems.velocity_system:run(storages.velocity, storages.position, dt)
 end
 
 local function draw()
    Raylib.BeginDrawing()
       Raylib.ClearBackground(RaylibColors.White)
 
-      tilemap_drawing_system_run(tilemap_drawing_system.system_data, storages.tilemap)
-      sprite_drawing_system_run(sprite_drawing_system.system_data, storages.position, storages.sprite)
+      game.game_systems.tilemap_drawing_system:run(storages.tilemap)
+      game.game_systems.sprite_drawing_system:run(storages.position, storages.sprite)
    Raylib.EndDrawing()
 end
 
-
-local SCREEN_WIDTH: integer <comptime> = 800
-local SCREEN_HEIGHT: integer <comptime> = 600
-
+Raylib.SetConfigFlags(ConfigFlag.WINDOW_RESIZABLE)
 Raylib.InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "The terrible game of hairy leg!")
 Raylib.SetTargetFPS(60)
 
 setup()
 
 while not Raylib.WindowShouldClose() do
-   update(Raylib.GetFrameTime())
+   update()
    draw()
 end
+
+-- TODO: implement destructors, especially to UnloadTexture_s
 Raylib.CloseWindow()
+-- game ]

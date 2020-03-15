@@ -1,0 +1,46 @@
+require 'perna-lib.components'
+require 'rotor'
+require 'vector'
+
+global PernaEntity = @record{
+   entity_id: GenerationalIndex,
+   position_id: GenerationalIndex,
+   velocity_id: GenerationalIndex,
+   sprite_id: GenerationalIndex,
+   controls_id: GenerationalIndex
+}
+
+function PernaEntity:create(
+   entity_storage: Storage(Entity)*,
+   position_storage: Storage(Position)*,
+   position_value: Position,
+   velocity_storage: Storage(Velocity)*,
+   velocity_value: Velocity,
+   sprite_storage: Storage(Sprite)*,
+   sprite_value: Sprite,
+   controls_storage: Storage(Controls)*,
+   controls_value: Controls,
+   untracked_ids: vector(GenerationalIndex)*
+)
+   local perna_entity_id, perna_entity = entity_storage:new_entry(Entity.new())
+
+   local position_id, position = position_storage:new_entry(position_value)
+   perna_entity:associate(position_id, masks.position)
+
+   local velocity_id, velocity = velocity_storage:new_entry(velocity_value)
+   perna_entity:associate(velocity_id, masks.velocity)
+
+   local sprite_id, sprite = sprite_storage:new_entry(sprite_value)
+   perna_entity:associate(sprite_id, masks.sprite)
+
+   local controls_id, controls = controls_storage:new_entry(controls_value)
+   perna_entity:associate(controls_id, masks.controls)
+
+   untracked_ids:push(perna_entity_id)
+
+   self.entity_id = perna_entity_id
+   self.position_id = position_id
+   self.velocity_id = velocity_id
+   self.sprite_id = sprite_id
+   self.controls_id = controls_id
+end
