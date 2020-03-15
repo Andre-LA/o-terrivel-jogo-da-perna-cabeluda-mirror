@@ -1,86 +1,9 @@
 require 'raylib'
+require 'perna-lib.components'
 require 'rotor'
 require 'vector'
 
--- components [
-local Position: type = @Vector2
-
-local Velocity = @record{
-   direction: Vector2,
-   scalar: number
 }
-
-local Controls = @record{
-   rightKey: KeyboardKey,
-   upKey: KeyboardKey,
-   leftKey: KeyboardKey,
-   downKey: KeyboardKey,
-}
-
-local Sprite = @record{
-   -- sprite_id: uinteger, TODO: implement sprite id
-   texture: Texture2D
-}
-
--- TODO: use a tileset for tiles, with this autotile will be possible
-local BGTile = @record{
-   sprite: Sprite,
-   id: uinteger
-}
-
-local TileSet = @record{
-   tiles: vector(BGTile),
-   tile_resolution: uinteger
-}
-
-local TileMap = @record{
-   tileset: TileSet*,
-   map: vector(vector(uinteger))
-}
--- components ]
-
--- storages [
-local EntityStorage: type = @Storage(Entity)
-local PositionStorage: type = @Storage(Position)
-local VelocityStorage: type = @Storage(Velocity)
-local ControlsStorage: type = @Storage(Controls)
-local TileMapStorage: type = @Storage(TileMap)
-local SpriteStorage: type = @Storage(Sprite)
-
-local storages: record{
-   entity: EntityStorage,
-   position: PositionStorage,
-   velocity: VelocityStorage,
-   controls: ControlsStorage,
-   tilemap: TileMapStorage,
-   sprite: SpriteStorage
-} = {
-   EntityStorage.new(),
-   PositionStorage.new(),
-   VelocityStorage.new(),
-   ControlsStorage.new(),
-   TileMapStorage.new(),
-   SpriteStorage.new(),
-}
--- storages ]
-
--- masks [
-local masks: record{
-   entity: BitsetArray,   --  1
-   position: BitsetArray, --  2
-   velocity: BitsetArray, --  4
-   controls: BitsetArray, --  8
-   tilemap: BitsetArray,  -- 16
-   sprite: BitsetArray,   -- 32
-} = {
-   bitset_array.lshift(BITSETARRAY_OF_ONE, 0), --  1
-   bitset_array.lshift(BITSETARRAY_OF_ONE, 1), --  2
-   bitset_array.lshift(BITSETARRAY_OF_ONE, 2), --  4
-   bitset_array.lshift(BITSETARRAY_OF_ONE, 3), --  8
-   bitset_array.lshift(BITSETARRAY_OF_ONE, 4), -- 16
-   bitset_array.lshift(BITSETARRAY_OF_ONE, 5), -- 32
-}
--- masks ]
 
 -- systems [
 local System = @record{

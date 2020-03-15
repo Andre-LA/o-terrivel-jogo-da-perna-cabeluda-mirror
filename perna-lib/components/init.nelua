@@ -1,0 +1,74 @@
+require 'raylib'
+require 'rotor'
+require 'vector'
+
+global Position: type = @Vector2
+
+global Velocity = @record{
+   direction: Vector2,
+   scalar: number
+}
+
+global Controls = @record{
+   rightKey: KeyboardKey,
+   upKey: KeyboardKey,
+   leftKey: KeyboardKey,
+   downKey: KeyboardKey,
+}
+
+global Sprite = @record{
+   -- sprite_id: uinteger, TODO: implement sprite id
+   texture: Texture2D
+}
+
+-- TODO: use a tileset for tiles, with this autotile will be possible
+global BGTile = @record{
+   sprite: Sprite,
+   id: uinteger
+}
+
+global TileSet = @record{
+   tiles: vector(BGTile),
+   tile_resolution: uinteger
+}
+
+global TileMap = @record{
+   tileset: TileSet*,
+   map: vector(vector(uinteger))
+}
+
+-- storages [
+global storages: record{
+   entity: Storage(Entity),
+   position: Storage(Position),
+   velocity: Storage(Velocity),
+   controls: Storage(Controls),
+   tilemap: Storage(TileMap),
+   sprite: Storage(Sprite)
+} = {
+   (@Storage(Entity)).new(),
+   (@Storage(Position)).new(),
+   (@Storage(Velocity)).new(),
+   (@Storage(Controls)).new(),
+   (@Storage(TileMap)).new(),
+   (@Storage(Sprite)).new(),
+}
+-- storages ]
+
+-- masks [
+global masks: record{
+   entity: BitsetArray,   --  1
+   position: BitsetArray, --  2
+   velocity: BitsetArray, --  4
+   controls: BitsetArray, --  8
+   tilemap: BitsetArray,  -- 16
+   sprite: BitsetArray,   -- 32
+} = {
+   bitset_array.lshift(BITSETARRAY_OF_ONE, 0), --  1
+   bitset_array.lshift(BITSETARRAY_OF_ONE, 1), --  2
+   bitset_array.lshift(BITSETARRAY_OF_ONE, 2), --  4
+   bitset_array.lshift(BITSETARRAY_OF_ONE, 3), --  8
+   bitset_array.lshift(BITSETARRAY_OF_ONE, 4), -- 16
+   bitset_array.lshift(BITSETARRAY_OF_ONE, 5), -- 32
+}
+-- masks ]
