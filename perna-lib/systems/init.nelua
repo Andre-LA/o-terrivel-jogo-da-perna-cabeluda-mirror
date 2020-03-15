@@ -1,0 +1,202 @@
+require 'raylib'
+require 'rotor'
+require 'perna-lib.components'
+require 'vector'
+
+local System = @record{
+   read: vector(BitsetArray),
+   write: vector(BitsetArray),
+   system_data: SystemData
+}
+
+-- velocity system [
+global VelocitySystem = @record{
+   system: System,
+}
+## VelocitySystem.value.is_gamesystem = true
+
+function VelocitySystem.new(): VelocitySystem
+   local new_system: VelocitySystem = {
+      system = {
+         read = {bitset_array.copy(masks.velocity)},
+         write = {bitset_array.copy(masks.position)}
+      }
+   }
+   new_system.system.system_data = SystemData.new(new_system.system.read, new_system.system.write)
+   return new_system
+end
+
+function VelocitySystem:run(velocity_storage: Storage(Velocity)*, position_storage: Storage(Position)*, delta_time: number)
+   for i = 0, < #self.system.system_data.components_indexes do
+      local ids = self.system.system_data.components_indexes[i]
+
+      if #ids > 0 then
+         local vel_id = ids[0];
+         local pos_id = ids[1];
+
+         local possible_vel = velocity_storage:get_entry(vel_id)
+         local possible_pos = position_storage:get_entry(pos_id)
+
+         if possible_vel.filled and possible_pos.filled then
+            local vel = possible_vel:get()
+            local pos = possible_pos:get()
+
+            pos.x = pos.x + vel.direction.x * vel.scalar * delta_time
+            pos.y = pos.y + vel.direction.y * vel.scalar * delta_time
+         else
+            self.system.system_data:mark_available(i)
+         end
+      end
+   end
+end
+-- velocity system ]
+
+-- Perna's controls system [
+global PernaControllerSystem = @record{
+   system: System,
+}
+## PernaControllerSystem.value.is_gamesystem = true
+
+function PernaControllerSystem.new(): PernaControllerSystem
+   local new_system: PernaControllerSystem = {
+      system = {
+         read = {bitset_array.copy(masks.controls)},
+         write = {bitset_array.copy(masks.velocity)}
+      }
+   }
+   new_system.system.system_data = SystemData.new(new_system.system.read, new_system.system.write)
+   return new_system
+end
+
+function PernaControllerSystem:run(controls_storage: Storage(Controls)*, velocity_storage: Storage(Velocity)*)
+   for i = 0, < #self.system.system_data.components_indexes do
+      local ids = self.system.system_data.components_indexes[i]
+
+      if #ids > 0 then
+         local ctrl_id = ids[0]
+         local vel_id = ids[1]
+
+         local possible_ctrl = controls_storage:get_entry(ctrl_id)
+         local possible_vel = velocity_storage:get_entry(vel_id)
+
+         if possible_ctrl.filled and possible_vel.filled then
+            local controls = possible_ctrl:get()
+            local velocity = possible_vel:get()
+
+            if Raylib.IsKeyDown(controls.rightKey) then
+               velocity.direction.x = 1
+            elseif Raylib.IsKeyDown(controls.leftKey) then
+               velocity.direction.x = -1
+            else
+               velocity.direction.x = 0
+            end
+
+            if Raylib.IsKeyDown(controls.upKey) then
+               velocity.direction.y = -1
+            elseif Raylib.IsKeyDown(controls.downKey) then
+               velocity.direction.y = 1
+            else
+               velocity.direction.y = 0
+            end
+         else
+            self.system.system_data:mark_available(i)
+         end
+      end
+   end
+end
+-- Perna's controls system ]
+
+-- tilemap drawing system [
+global TilemapDrawingSystem = @record{
+   system: System
+}
+## TilemapDrawingSystem.value.is_gamesystem = true
+
+function TilemapDrawingSystem.new(): TilemapDrawingSystem
+   local new_system: TilemapDrawingSystem = {
+      system = {
+         read = {bitset_array.copy(masks.tilemap)},
+         write = {}
+      }
+   }
+   new_system.system.system_data = SystemData.new(new_system.system.read, new_system.system.write)
+   return new_system
+end
+
+function TilemapDrawingSystem:run(tilemap_storage: Storage(TileMap)*)
+   for i = 0, < #self.system.system_data.components_indexes do
+      --print ('tilemap system i', i)
+      local ids = self.system.system_data.components_indexes[i]
+
+      if #ids > 0 then
+         local tm_id = ids[0]
+         local possible_tm = tilemap_storage:get_entry(tm_id)
+
+         if possible_tm.filled then
+            local tilemap = possible_tm:get()
+            local tileset = tilemap.tileset
+            local map = &tilemap.map
+
+            for l = 0, < #map do
+               for c = 0, < #map[l] do
+                  local tile_position: Vector2 = {tileset.tile_resolution * c, tileset.tile_resolution * l}
+                  local tile_id = map[l][c]
+
+                  for t = 0, < #tileset.tiles do
+                     local tile: BGTile = tileset.tiles[t]
+                     if tile.id == tile_id then
+                        Raylib.DrawTextureV(tile.sprite.texture, tile_position, RaylibColors.White)
+                     end
+                  end
+               end
+            end
+         else
+            self.system.system_data:mark_available(i)
+         end
+      end
+   end
+end
+-- tilemap drawing system ]
+
+-- sprite drawing system [
+global SpriteDrawingSystem = @record{
+   system: System
+}
+## SpriteDrawingSystem.value.is_gamesystem = true
+
+function SpriteDrawingSystem.new(): SpriteDrawingSystem
+   local new_system: SpriteDrawingSystem = {
+      system = {
+         read = {bitset_array.copy(masks.position), bitset_array.copy(masks.sprite)},
+         write = {}
+      }
+   }
+   new_system.system.system_data = SystemData.new(new_system.system.read, new_system.system.write)
+   return new_system
+end
+
+function SpriteDrawingSystem:run(position_storage: Storage(Position)*, sprite_storage: Storage(Sprite)*)
+   for i = 0, < #self.system.system_data.components_indexes do
+      --print ('sprite system i', i)
+
+      local ids = self.system.system_data.components_indexes[i]
+
+      if #ids > 0 then
+         local pos_id = ids[0]
+         local sprite_id = ids[1]
+
+         local possible_sprite = sprite_storage:get_entry(sprite_id)
+         local possible_pos = position_storage:get_entry(pos_id)
+
+         if possible_sprite.filled and possible_pos.filled then
+            local sprite = possible_sprite:get()
+            local pos = possible_pos:get()
+            Raylib.DrawTextureV(sprite.texture, pos, RaylibColors.White)
+         else
+            self.system.system_data:mark_available(i)
+         end
+      end
+   end
+end
+-- sprite drawing system ]
+
