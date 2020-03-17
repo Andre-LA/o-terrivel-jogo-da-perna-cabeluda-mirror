@@ -12,14 +12,10 @@ global PernaEntity = @record{
 
 function PernaEntity:create(
    entity_storage: Storage(Entity)*,
-   position_storage: Storage(Position)*,
-   position_value: Position,
-   velocity_storage: Storage(Velocity)*,
-   velocity_value: Velocity,
-   sprite_storage: Storage(Sprite)*,
-   sprite_value: Sprite,
-   controls_storage: Storage(Controls)*,
-   controls_value: Controls,
+   position_storage: Storage(Position)*, position_value: Position,
+   velocity_storage: Storage(Velocity)*, velocity_value: Velocity,
+   sprite_storage: Storage(Sprite)*    , sprite_value: Sprite,
+   controls_storage: Storage(Controls)*, controls_value: Controls,
    untracked_ids: vector(GenerationalIndex)*
 )
    local perna_entity_id, perna_entity = entity_storage:new_entry(Entity.new())
