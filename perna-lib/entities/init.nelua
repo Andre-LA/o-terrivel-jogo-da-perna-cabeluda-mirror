@@ -44,3 +44,31 @@ function PernaEntity:create(
    self.sprite_id = sprite_id
    self.controls_id = controls_id
 end
+
+global TileMapEntity = @record{
+   entity_id: GenerationalIndex,
+   position_id: GenerationalIndex,
+   tilemap_id: GenerationalIndex
+}
+
+function TileMapEntity:create(
+   entity_storage: Storage(Entity)*,
+   position_storage: Storage(Position)*, position_value: Position,
+   tilemap_storage: Storage(TileMap)*  , tilemap_value: TileMap,
+   untracked_ids: vector(GenerationalIndex)*
+)
+   local tilemap_entity_id, tilemap_entity = entity_storage:new_entry(Entity.new())
+
+   local position_id, position = position_storage:new_entry(position_value)
+   tilemap_entity:associate(position_id, masks.position)
+
+   local tilemap_id, tilemap = tilemap_storage:new_entry(tilemap_value)
+   tilemap_entity:associate(tilemap_id, masks.tilemap)
+
+
+   untracked_ids:push(tilemap_entity_id)
+
+   self.entity_id = tilemap_entity_id
+   self.position_id = position_id
+   self.tilemap_id = tilemap_id
+end
