@@ -134,14 +134,19 @@ function TilemapDrawingSystem:run(position_storage: Storage(Position)*, tilemap_
          local possible_pos = position_storage:get_entry(pos_id)
          local possible_tm  = tilemap_storage:get_entry(tm_id)
 
-         if possible_tm.filled then
+         if possible_pos.filled and possible_tm.filled then
+            local position = possible_pos:get()
             local tilemap = possible_tm:get()
+
             local tileset = tilemap.tileset
             local map = &tilemap.map
 
             for l = 0, < #map do
                for c = 0, < #map[l] do
-                  local tile_position: Vector2 = {tileset.tile_resolution * c, tileset.tile_resolution * l}
+                  local tile_position: Vector2 = {
+                     tileset.tile_resolution * c + position.x,
+                     tileset.tile_resolution * l + position.y
+                  }
                   local tile_id = map[l][c]
 
                   for t = 0, < #tileset.tiles do
