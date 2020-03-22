@@ -34,11 +34,13 @@ function PernaEntity:create(
 
    untracked_ids:push(perna_entity_id)
 
-   self.entity_id = perna_entity_id
-   self.position_id = position_id
-   self.velocity_id = velocity_id
-   self.sprite_id = sprite_id
-   self.controls_id = controls_id
+   $self = {
+      entity_id   = perna_entity_id,
+      position_id = position_id,
+      velocity_id = velocity_id,
+      sprite_id   = sprite_id,
+      controls_id = controls_id
+   }
 end
 
 global TileMapEntity = @record{
@@ -64,7 +66,9 @@ function TileMapEntity:create(
 
    untracked_ids:push(tilemap_entity_id)
 
-   self.entity_id = tilemap_entity_id
-   self.position_id = position_id
-   self.tilemap_id = tilemap_id
+   $self = {
+      entity_id   = tilemap_entity_id,
+      position_id = position_id,
+      tilemap_id  = tilemap_id
+   }
 end
