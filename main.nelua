@@ -89,7 +89,7 @@ local function create_tilemap(game: Game*, untracked_ids: vector(GenerationalInd
    )
 
    game.tilemap = {
-      id = new_tilemap.tilemap_id
+      id = new_tilemap.entity_id
    }
 
    return new_tilemap
