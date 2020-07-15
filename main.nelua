@@ -48,7 +48,7 @@ local function create_perna(game: Game*, untracked_ids: vector(GenerationalIndex
       storages.position, {0, 0},
       storages.velocity, {{0, 0}, 100},
       storages.sprite  , {texture = Raylib.LoadTexture('resources/sprites/perna/protosprite.png')},
-      storages.controls, {KeyboardKey.RIGHT, KeyboardKey.UP, KeyboardKey.LEFT, KeyboardKey.DOWN},
+      storages.controls, {KeyboardKey.KEY_RIGHT, KeyboardKey.KEY_UP, KeyboardKey.KEY_LEFT, KeyboardKey.KEY_DOWN},
       untracked_ids
    )
 
@@ -129,14 +129,14 @@ end
 
 local function draw()
    Raylib.BeginDrawing()
-      Raylib.ClearBackground(RaylibColors.White)
+      Raylib.ClearBackground(WHITE)
 
       game.game_systems.tilemap_drawing_system:run(storages.position, storages.tilemap)
       game.game_systems.sprite_drawing_system:run(storages.position, storages.sprite)
    Raylib.EndDrawing()
 end
 
-Raylib.SetConfigFlags(ConfigFlag.WINDOW_RESIZABLE)
+Raylib.SetConfigFlags(ConfigFlag.FLAG_WINDOW_RESIZABLE)
 Raylib.InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "The terrible game of hairy leg!")
 Raylib.SetTargetFPS(60)
 

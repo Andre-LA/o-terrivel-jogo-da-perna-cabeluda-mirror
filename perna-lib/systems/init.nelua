@@ -152,7 +152,7 @@ function TilemapDrawingSystem:run(position_storage: Storage(Position)*, tilemap_
                   for t = 0, < #tileset.tiles do
                      local tile: BGTile = tileset.tiles[t]
                      if tile.id == tile_id then
-                        Raylib.DrawTextureV(tile.sprite.texture, tile_position, RaylibColors.White)
+                        Raylib.DrawTextureV(tile.sprite.texture, tile_position, WHITE)
                      end
                   end
                end
@@ -198,7 +198,7 @@ function SpriteDrawingSystem:run(position_storage: Storage(Position)*, sprite_st
          if possible_sprite.filled and possible_pos.filled then
             local sprite = possible_sprite:get()
             local pos = possible_pos:get()
-            Raylib.DrawTextureV(sprite.texture, pos, RaylibColors.White)
+            Raylib.DrawTextureV(sprite.texture, pos, WHITE)
          else
             self.system.system_data:mark_available(i)
          end
